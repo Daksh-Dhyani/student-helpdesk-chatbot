@@ -1,6 +1,6 @@
 # Student Helpdesk Chatbot
 
-**Live demo:**https://student-appdesk-chatbot-ndgowicfzdsfnecwqjibra.streamlit.app/
+**Live demo:** https://student-appdesk-chatbot-ndgowicfzdsfnecwqjibra.streamlit.app/
 
 A small FAQ chatbot for college students, built in Python. It answers
 questions about exams, attendance, fees and the library from a knowledge base
