@@ -1,5 +1,7 @@
 # Student Helpdesk Chatbot
 
+**Live demo:**https://student-appdesk-chatbot-ndgowicfzdsfnecwqjibra.streamlit.app/
+
 A small FAQ chatbot for college students, built in Python. It answers
 questions about exams, attendance, fees and the library from a knowledge base
 I wrote myself. No external API is used.
@@ -15,6 +17,7 @@ I wrote myself. No external API is used.
 ## Project structure
 ```
 student-helpdesk-chatbot/
+├── app.py              web version (Streamlit)
 ├── data/faq.csv        questions, answers and keywords
 ├── src/chatbot.py      the chatbot
 ├── requirements.txt
@@ -25,7 +28,8 @@ student-helpdesk-chatbot/
 1. Create and activate a virtual environment, then
    `pip install -r requirements.txt`
 2. Run `python src/chatbot.py`
-3. Type a question, for example `how to pay fees`. Type `quit` to exit.
+3. To run the web version instead, use `streamlit run app.py`
+4. Type a question, for example `how to pay fees`. Type `quit` to exit.
 
 ## Example
 ```

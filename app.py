@@ -4,7 +4,7 @@ from src.chatbot import FAQ_FILE, build_model, get_answer, load_faq
 
 st.set_page_config(page_title="Student Helpdesk Chatbot", page_icon="🎓")
 st.title("🎓 Student Helpdesk Chatbot")
-st.caption("Ask about exams, attendance, fees or the library.")
+st.caption("Not an official university service. Answers may be incomplete, so please confirm important details with your department.")
 
 
 @st.cache_resource
