@@ -1,0 +1,12 @@
+topic,question,answer,keywords
+about,What can you do?,I answer common college questions about exams and attendance and fees and the library.,help abilities features purpose
+about,Who made you?,I was built by Daksh as a Python student project.,creator developer author built made
+help,How do I ask a question?,Type your question in simple words and I will find the closest answer I know.,ask usage instructions use
+help,What if you do not know the answer?,I will say so and suggest topics I can help with.,unknown sorry fallback
+exams,When do exams start?,"Mid-semester exams are held twice per semester. End-semester exams are held in May and December.",exam exams date dates schedule timetable begin midterm endterm semester
+exams,Where can I see my results?,You can see your results on the CUIMS website.,result results marks grades score cuims portal check
+attendance,What attendance is required?,The minimum attendance required to sit for the exams is 75%.,attendance percentage minimum 75 shortage eligible rule rules
+fees,How can I pay my fees?,"Fees can be paid in both modes, online and offline.",fee fees payment pay online offline mode
+library,How do I contact the library?,"Each block has its own library, so you can visit the library in your block.",library contact location block visit address
+library,What are the library timings?,"The main library is a large two-floor library, and its timing is 9 am to 6 pm.",library timing timings hours open close time opening
+about,Who made you?,I was built by Daksh as a Python student project.,creator created developer author built made
