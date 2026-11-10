@@ -1,6 +1,7 @@
-   venv/
-   __pycache__/
-   *.pyc
-   .vscode/
-   .env
-   desktop.ini
+venv/
+__pycache__/
+*.pyc
+.vscode/
+.env
+desktop.ini
+.streamlit/secrets.toml
