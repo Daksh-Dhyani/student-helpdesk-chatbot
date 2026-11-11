@@ -30,7 +30,7 @@ def time_greeting():
 def load_bot():
     faq = load_faq(FAQ_FILE)
     vectorizer, question_vectors = build_model(faq)
-    topics = sorted({row["topic"] for row in faq})
+    topics = sorted({row["topic"] for row in faq} - {"about", "help"})
     return faq, vectorizer, question_vectors, topics
 
 
