@@ -57,16 +57,20 @@ def build_prompt(faq, history, question):
     )
     chat = "\n".join(f"{m['role']}: {m['content']}" for m in history[-6:])
     return (
-        "You are a friendly student helpdesk assistant for a university.\n"
-        "Answer ONLY using the verified facts below. Never invent dates, "
-        "numbers, names or rules. If the facts do not contain the answer, "
-        "say you are not sure, suggest asking the college office, and "
-        "mention the topics you can help with. Keep replies short and "
-        "clear. Reply in the same language style the student uses.\n"
+        "You are a friendly, helpful AI assistant for university students. "
+        "You can answer any question: studies, coding, general knowledge, "
+        "advice, and everyday doubts. Keep replies clear and not too long, "
+        "and reply in the same language style the student uses.\n\n"
+        "STRICT RULE FOR UNIVERSITY QUESTIONS: if the student asks about "
+        "their own university (hostel, fees, exams, attendance, library, "
+        "transport, scholarships, offices, rules, dates, places, people), "
+        "answer ONLY from the verified facts below. Never invent or guess "
+        "any university detail. If the facts do not contain it, say you are "
+        "not sure and suggest asking the college office or checking CUIMS.\n"
         f"If the student greets you, greet back with '{time_greeting()}'.\n\n"
-        f"VERIFIED FACTS:\n{knowledge}\n\n"
+        f"VERIFIED UNIVERSITY FACTS:\n{knowledge}\n\n"
         f"CHAT SO FAR:\n{chat}\n\n"
-        f"STUDENT: {question}\nASSISTANT:"
+        f"STUDENT: {question[:500]}\nASSISTANT:"
     )
 
 
@@ -90,7 +94,7 @@ welcome = (time_greeting() + "! 👋 I'm your helpdesk assistant. Ask me about "
 with st.sidebar:
     st.header("🎓 Helpdesk")
     st.write("**Topics:** " + topics_text)
-    st.write("**Mode:** " + ("AI + verified answers" if client else "Rules only"))
+    st.write("**Mode:** " + ("AI assistant + verified university facts" if client else "Rules only"))
     st.divider()
     st.write("Try asking:")
     for q in ["When do exams start?", "What attendance is required?",
@@ -101,8 +105,9 @@ with st.sidebar:
         st.session_state.messages = []
         st.rerun()
     st.divider()
-    st.caption("Not an official university service. Answers may be "
-               "incomplete, so confirm important details with your department.")
+    st.caption("Not an official university service. University answers come "
+               "from verified facts. General answers come from an AI and can "
+               "be wrong, so double-check anything important.")
 
 # ---- Main page ----
 st.title("🎓 Student Helpdesk Chatbot")
@@ -138,7 +143,7 @@ if question:
         if client is not None:
             try:
                 answer = st.write_stream(ai_stream(client, faq, history, question))
-                source = "answered by AI from verified answers"
+                source = "answered by AI (university facts are verified, general answers are not)"
             except Exception:
                 answer = None  # fall back to rules if the AI call fails
 
