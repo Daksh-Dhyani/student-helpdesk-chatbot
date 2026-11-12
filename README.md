@@ -21,6 +21,9 @@ normal AI assistant.
   model
 - If the AI is busy or unavailable, it falls back to simple matching on the
   verified answers and says so
+- Study helper: upload a syllabus (PDF or text) and get explanations, a 7-day
+  study plan, practice questions or revision notes based on it. The file is
+  used only for the current chat.
 
 ## How it works
 1. **Verified facts:** `data/faq.csv` holds questions, answers and keywords.
@@ -65,6 +68,8 @@ might actually type to the keywords column.
 - General AI answers are not verified and can be wrong.
 - The AI runs on a free Gemini plan, so it can be slow or busy at times.
 - The rules fallback matches words, not meaning.
+- Scanned or photographed PDFs can't be read, only text-based ones.
+- Practice questions are guesses, not the real exam paper.
 
 ## Author
 Daksh Dhyani, BCA Data Science (Hons.), Chandigarh University
