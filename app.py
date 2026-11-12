@@ -7,7 +7,7 @@ import streamlit as st
 from src.chatbot import FAQ_FILE, build_model, get_answer, load_faq
 
 # Check the current model name in Google AI Studio if this one stops working.
-MODEL_NAME = "gemini-3.8-flash"
+MODEL_NAMES = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash-lite"]
 GREETINGS = {"hi", "hello", "hey", "hii", "hy", "hlo", "hola"}
 IST = timezone(timedelta(hours=5, minutes=30))
 TYPING_DELAY = 0.03  # seconds per word; make it smaller for faster typing
@@ -39,14 +39,21 @@ def load_client():
     try:
         key = st.secrets["GEMINI_API_KEY"]
         from google import genai
-        return genai.Client(api_key=key)
+        from google.genai import types
+        return genai.Client(
+            api_key=key,
+            http_options=types.HttpOptions(
+                timeout=20000,
+                retry_options=types.HttpRetryOptions(attempts=1),
+            ),
+        )
     except Exception:
         return None
 
 
 def word_stream(text):
     """Yield a finished text one word at a time (typing effect)."""
-    for word in re.findall(r"\S+\s*", text):
+    for word in re.findall(r"\s*\S+\s*|\s+", text):
         yield word
         time.sleep(TYPING_DELAY)
 
@@ -75,13 +82,26 @@ def build_prompt(faq, history, question):
 
 
 def ai_stream(client, faq, history, question):
-    """Yield the AI reply word by word as it arrives."""
+    """Yield the AI reply word by word. Tries each model if one is busy."""
     prompt = build_prompt(faq, history, question)
-    for chunk in client.models.generate_content_stream(
-        model=MODEL_NAME, contents=prompt
-    ):
-        if chunk.text:
-            yield from word_stream(chunk.text)
+    last_error = None
+    for model in MODEL_NAMES:
+        for attempt in range(1):
+            started = False
+            try:
+                for chunk in client.models.generate_content_stream(
+                    model=model, contents=prompt
+                ):
+                    if chunk.text:
+                        started = True
+                        yield from word_stream(chunk.text)
+                return
+            except Exception as e:
+                if started:
+                    raise
+                last_error = e
+                time.sleep(2)
+    raise last_error
 
 
 faq, vectorizer, question_vectors, topics = load_bot()
