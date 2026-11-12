@@ -34,22 +34,46 @@ STARTERS = [
 st.set_page_config(page_title="Student Helpdesk Chatbot", page_icon="🎓")
 st.markdown("""
 <style>
+.stApp {background: radial-gradient(circle at 20% 0%, #1b1440 0%, #0b0b14 55%);}
 .block-container {padding-top: 2rem; max-width: 900px;}
 .hero {
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #db2777 100%);
+  background: linear-gradient(120deg, #4f46e5, #7c3aed, #db2777, #4f46e5);
+  background-size: 300% 300%;
+  animation: flow 8s ease infinite;
   border-radius: 20px; padding: 26px 30px; color: white;
-  margin-bottom: 16px; box-shadow: 0 8px 24px rgba(79,70,229,.28);
+  margin-bottom: 16px; box-shadow: 0 8px 30px rgba(124,58,237,.35);
 }
 .hero h1 {margin: 0; padding: 0; font-size: 2.1rem; color: white;}
 .hero p {margin: 6px 0 0; opacity: .93; font-size: 1.02rem; color: white;}
+@keyframes flow {
+  0% {background-position: 0% 50%;}
+  50% {background-position: 100% 50%;}
+  100% {background-position: 0% 50%;}
+}
+@keyframes rise {
+  from {opacity: 0; transform: translateY(10px);}
+  to {opacity: 1; transform: none;}
+}
 .chips {display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px;}
 .chip {
   padding: 6px 14px; border-radius: 999px; font-size: .9rem;
-  background: rgba(124,58,237,.14); border: 1px solid rgba(124,58,237,.35);
+  background: rgba(124,58,237,.18); border: 1px solid rgba(167,139,250,.4);
+  animation: rise .6s ease both;
 }
-.stButton > button {border-radius: 12px;}
-.stButton > button:hover {border-color: #7c3aed; color: #7c3aed;}
-[data-testid="stChatMessage"] {border-radius: 16px;}
+[data-testid="stChatMessage"] {
+  background: rgba(255,255,255,.04) !important;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 16px; animation: rise .45s ease both;
+}
+.stButton > button {
+  border-radius: 12px; background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.12); transition: all .2s ease;
+}
+.stButton > button:hover {
+  border-color: #a78bfa; color: #c4b5fd; transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(124,58,237,.3);
+}
+section[data-testid="stSidebar"] {background: rgba(10,10,24,.85);}
 </style>
 """, unsafe_allow_html=True)
 
@@ -169,9 +193,7 @@ def ai_stream(client, faq, history, question, syllabus):
 faq, vectorizer, question_vectors, topics = load_bot(os.path.getmtime(FAQ_FILE))
 client = load_client()
 topics_text = ", ".join(topics)
-welcome = (time_greeting() + "! 👋 I'm your helpdesk assistant. Ask me about "
-           + topics_text + ", or upload your syllabus in the sidebar for "
-           "study help.")
+welcome = time_greeting() + "! 👋 How can I help you today?"
 
 syllabus = ""
 
