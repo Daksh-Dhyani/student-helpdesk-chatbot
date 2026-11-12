@@ -7,7 +7,7 @@ import streamlit as st
 from src.chatbot import FAQ_FILE, build_model, get_answer, load_faq
 
 # Check the current model name in Google AI Studio if this one stops working.
-MODEL_NAME = "gemini-2.5-flash"
+MODEL_NAME = "gemini-3.8-flash"
 GREETINGS = {"hi", "hello", "hey", "hii", "hy", "hlo", "hola"}
 IST = timezone(timedelta(hours=5, minutes=30))
 TYPING_DELAY = 0.03  # seconds per word; make it smaller for faster typing
@@ -144,8 +144,9 @@ if question:
             try:
                 answer = st.write_stream(ai_stream(client, faq, history, question))
                 source = "answered by AI (university facts are verified, general answers are not)"
-            except Exception:
+            except Exception as e:
                 answer = None  # fall back to rules if the AI call fails
+                st.warning(f"AI unavailable: {type(e).__name__}: {str(e)[:200]}")
 
         if not answer:
             source = "answered by rules"
