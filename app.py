@@ -1,16 +1,27 @@
+import os
 import re
 import time
 from datetime import datetime, timedelta, timezone
+from io import BytesIO
 
 import streamlit as st
 
 from src.chatbot import FAQ_FILE, build_model, get_answer, load_faq
 
-# Check the current model name in Google AI Studio if this one stops working.
 MODEL_NAMES = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash-lite"]
 GREETINGS = {"hi", "hello", "hey", "hii", "hy", "hlo", "hola"}
 IST = timezone(timedelta(hours=5, minutes=30))
 TYPING_DELAY = 0.03  # seconds per word; make it smaller for faster typing
+MAX_QUESTION_CHARS = 4000
+MAX_SYLLABUS_CHARS = 30000
+MAX_HISTORY_CHARS = 1500
+
+STUDY_PROMPTS = {
+    "📖 Explain unit 1 simply": "Explain unit 1 of my syllabus simply, with examples.",
+    "🗓️ 7-day study plan": "Make a 7-day study plan for my syllabus.",
+    "❓ 10 practice questions": "Give me 10 likely exam-style practice questions with answers from my syllabus.",
+    "📝 Short revision notes": "Make short revision notes for my syllabus.",
+}
 
 st.set_page_config(page_title="Student Helpdesk Chatbot", page_icon="🎓")
 
@@ -27,7 +38,7 @@ def time_greeting():
 
 
 @st.cache_resource
-def load_bot():
+def load_bot(file_stamp):
     faq = load_faq(FAQ_FILE)
     vectorizer, question_vectors = build_model(faq)
     topics = sorted({row["topic"] for row in faq} - {"about", "help"})
@@ -43,12 +54,24 @@ def load_client():
         return genai.Client(
             api_key=key,
             http_options=types.HttpOptions(
-                timeout=20000,
+                timeout=60000,
                 retry_options=types.HttpRetryOptions(attempts=1),
             ),
         )
     except Exception:
         return None
+
+
+@st.cache_data(show_spinner=False)
+def extract_text(name, data):
+    """Read the text of an uploaded PDF or text file."""
+    if name.lower().endswith(".pdf"):
+        from pypdf import PdfReader
+        reader = PdfReader(BytesIO(data))
+        text = "\n".join((page.extract_text() or "") for page in reader.pages)
+    else:
+        text = data.decode("utf-8", errors="ignore")
+    return text.strip()
 
 
 def word_stream(text):
@@ -58,15 +81,24 @@ def word_stream(text):
         time.sleep(TYPING_DELAY)
 
 
-def build_prompt(faq, history, question):
+def build_prompt(faq, history, question, syllabus):
     knowledge = "\n".join(
         f"- Q: {row['question']}\n  A: {row['answer']}" for row in faq
     )
-    chat = "\n".join(f"{m['role']}: {m['content']}" for m in history[-6:])
+    chat = "\n".join(
+        f"{m['role']}: {m['content'][:MAX_HISTORY_CHARS]}" for m in history[-6:]
+    )
+    syllabus_part = ""
+    if syllabus:
+        syllabus_part = (
+            "STUDENT'S UPLOADED SYLLABUS (use it for study requests such as "
+            "explaining units, study plans, revision notes and practice "
+            "questions):\n" + syllabus + "\n\n"
+        )
     return (
         "You are a friendly, helpful AI assistant for university students. "
         "You can answer any question: studies, coding, general knowledge, "
-        "advice, and everyday doubts. Keep replies clear and not too long, "
+        "advice, and everyday doubts. Keep replies clear and well organised, "
         "and reply in the same language style the student uses.\n\n"
         "STRICT RULE FOR UNIVERSITY QUESTIONS: if the student asks about "
         "their own university (hostel, fees, exams, attendance, library, "
@@ -74,60 +106,94 @@ def build_prompt(faq, history, question):
         "answer ONLY from the verified facts below. Never invent or guess "
         "any university detail. If the facts do not contain it, say you are "
         "not sure and suggest asking the college office or checking CUIMS.\n"
+        "For study help from the syllabus: practice questions are only "
+        "guesses, not the real exam paper, so say that briefly. Never claim "
+        "to know what will actually come in the student's exam.\n"
         f"If the student greets you, greet back with '{time_greeting()}'.\n\n"
         f"VERIFIED UNIVERSITY FACTS:\n{knowledge}\n\n"
+        f"{syllabus_part}"
         f"CHAT SO FAR:\n{chat}\n\n"
-        f"STUDENT: {question[:500]}\nASSISTANT:"
+        f"STUDENT: {question}\nASSISTANT:"
     )
 
 
-def ai_stream(client, faq, history, question):
+def ai_stream(client, faq, history, question, syllabus):
     """Yield the AI reply word by word. Tries each model if one is busy."""
-    prompt = build_prompt(faq, history, question)
+    prompt = build_prompt(faq, history, question, syllabus)
     last_error = None
     for model in MODEL_NAMES:
-        for attempt in range(1):
-            started = False
-            try:
-                for chunk in client.models.generate_content_stream(
-                    model=model, contents=prompt
-                ):
-                    if chunk.text:
-                        started = True
-                        yield from word_stream(chunk.text)
-                return
-            except Exception as e:
-                if started:
-                    raise
-                last_error = e
-                time.sleep(2)
+        started = False
+        try:
+            for chunk in client.models.generate_content_stream(
+                model=model, contents=prompt
+            ):
+                if chunk.text:
+                    started = True
+                    yield from word_stream(chunk.text)
+            return
+        except Exception as e:
+            if started:
+                raise
+            last_error = e
     raise last_error
 
 
-faq, vectorizer, question_vectors, topics = load_bot()
+faq, vectorizer, question_vectors, topics = load_bot(os.path.getmtime(FAQ_FILE))
 client = load_client()
 topics_text = ", ".join(topics)
 welcome = (time_greeting() + "! 👋 I'm your helpdesk assistant. Ask me about "
-           + topics_text + ".")
+           + topics_text + ", or upload your syllabus in the sidebar for "
+           "study help.")
+
+syllabus = ""
 
 # ---- Sidebar ----
 with st.sidebar:
     st.header("🎓 Helpdesk")
     st.write("**Topics:** " + topics_text)
-    st.write("**Mode:** " + ("AI assistant + verified university facts" if client else "Rules only"))
+    st.write("**Mode:** " + ("AI assistant + verified university facts"
+                             if client else "Rules only"))
     st.divider()
     st.write("Try asking:")
     for q in ["When do exams start?", "What attendance is required?",
               "How can I pay my fees?", "What are the library timings?"]:
         if st.button(q, use_container_width=True):
             st.session_state.pending = q
+
+    st.divider()
+    st.write("📚 **Study helper**")
+    uploaded = st.file_uploader(
+        "Upload your syllabus (PDF or text)", type=["pdf", "txt"]
+    )
+    if uploaded is not None:
+        try:
+            text = extract_text(uploaded.name, uploaded.getvalue())
+        except Exception:
+            text = ""
+        if text:
+            syllabus = text[:MAX_SYLLABUS_CHARS]
+            st.success("Syllabus loaded: " + uploaded.name)
+            if len(text) > MAX_SYLLABUS_CHARS:
+                st.caption("The file is long, so only the first part is used.")
+        else:
+            st.warning("I couldn't read any text from this file. Scanned "
+                       "or photo PDFs don't work. Try a text PDF.")
+    if syllabus:
+        for label, study_prompt in STUDY_PROMPTS.items():
+            if st.button(label, use_container_width=True):
+                st.session_state.pending = study_prompt
+    if not client:
+        st.caption("Study help needs the AI, which is off right now.")
+
+    st.divider()
     if st.button("🗑️ Clear chat", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
-    st.divider()
     st.caption("Not an official university service. University answers come "
-               "from verified facts. General answers come from an AI and can "
-               "be wrong, so double-check anything important.")
+               "from verified facts. General and study answers come from an "
+               "AI and can be wrong, so double-check anything important. An "
+               "uploaded syllabus is used only for your current chat and is "
+               "sent to Google's AI service. Don't upload personal documents.")
 
 # ---- Main page ----
 st.title("🎓 Student Helpdesk Chatbot")
@@ -150,6 +216,7 @@ typed = st.chat_input("Type your question here")
 question = st.session_state.pop("pending", None) or typed
 
 if question:
+    question = question[:MAX_QUESTION_CHARS]
     history = list(st.session_state.messages)
     st.session_state.messages.append(
         {"role": "user", "content": question, "source": ""}
@@ -162,7 +229,9 @@ if question:
 
         if client is not None:
             try:
-                answer = st.write_stream(ai_stream(client, faq, history, question))
+                answer = st.write_stream(
+                    ai_stream(client, faq, history, question, syllabus)
+                )
                 source = "answered by AI (university facts are verified, general answers are not)"
             except Exception as e:
                 answer = None  # fall back to rules if the AI call fails
@@ -184,8 +253,8 @@ if question:
                             "try again in a few minutes.")
                     source = "AI temporarily unavailable"
                 else:
-                    text = found or ("Sorry, I don't know that. Try asking about "
-                                     + topics_text + ".")
+                    text = found or ("Sorry, I don't know that. Try asking "
+                                     "about " + topics_text + ".")
             answer = st.write_stream(word_stream(text))
 
         st.caption(source)
