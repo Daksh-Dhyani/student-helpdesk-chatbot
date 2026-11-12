@@ -166,18 +166,26 @@ if question:
                 source = "answered by AI (university facts are verified, general answers are not)"
             except Exception as e:
                 answer = None  # fall back to rules if the AI call fails
-                st.warning(f"AI unavailable: {type(e).__name__}: {str(e)[:200]}")
+                print("AI error:", type(e).__name__, str(e)[:200])
+
+        ai_failed = client is not None and not answer
 
         if not answer:
             source = "answered by rules"
             if question.lower().strip() in GREETINGS:
                 text = welcome
             else:
-                found, _score = get_answer(
+                found, score = get_answer(
                     question, faq, vectorizer, question_vectors
                 )
-                text = found or ("Sorry, I don't know that. Try asking about "
-                                 + topics_text + ".")
+                if ai_failed and (found is None or score < 0.35):
+                    text = ("The AI is busy right now, so I can only answer "
+                            "questions I have verified answers for. Please "
+                            "try again in a few minutes.")
+                    source = "AI temporarily unavailable"
+                else:
+                    text = found or ("Sorry, I don't know that. Try asking about "
+                                     + topics_text + ".")
             answer = st.write_stream(word_stream(text))
 
         st.caption(source)
