@@ -1,3 +1,4 @@
+import html
 import os
 import re
 import time
@@ -23,7 +24,34 @@ STUDY_PROMPTS = {
     "📝 Short revision notes": "Make short revision notes for my syllabus.",
 }
 
+STARTERS = [
+    ("🏠 Hostel in-time", "What is the hostel in time?"),
+    ("📅 When do exams start?", "When do exams start?"),
+    ("🚌 Bus pass", "How can I get a bus pass and find my route?"),
+    ("🎓 Scholarships", "Are scholarships available?"),
+]
+
 st.set_page_config(page_title="Student Helpdesk Chatbot", page_icon="🎓")
+st.markdown("""
+<style>
+.block-container {padding-top: 2rem; max-width: 900px;}
+.hero {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #db2777 100%);
+  border-radius: 20px; padding: 26px 30px; color: white;
+  margin-bottom: 16px; box-shadow: 0 8px 24px rgba(79,70,229,.28);
+}
+.hero h1 {margin: 0; padding: 0; font-size: 2.1rem; color: white;}
+.hero p {margin: 6px 0 0; opacity: .93; font-size: 1.02rem; color: white;}
+.chips {display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px;}
+.chip {
+  padding: 6px 14px; border-radius: 999px; font-size: .9rem;
+  background: rgba(124,58,237,.14); border: 1px solid rgba(124,58,237,.35);
+}
+.stButton > button {border-radius: 12px;}
+.stButton > button:hover {border-color: #7c3aed; color: #7c3aed;}
+[data-testid="stChatMessage"] {border-radius: 16px;}
+</style>
+""", unsafe_allow_html=True)
 
 
 def time_greeting():
@@ -167,13 +195,13 @@ with st.sidebar:
     )
     if uploaded is not None:
         try:
-            text = extract_text(uploaded.name, uploaded.getvalue())
+            file_text = extract_text(uploaded.name, uploaded.getvalue())
         except Exception:
-            text = ""
-        if text:
-            syllabus = text[:MAX_SYLLABUS_CHARS]
+            file_text = ""
+        if file_text:
+            syllabus = file_text[:MAX_SYLLABUS_CHARS]
             st.success("Syllabus loaded: " + uploaded.name)
-            if len(text) > MAX_SYLLABUS_CHARS:
+            if len(file_text) > MAX_SYLLABUS_CHARS:
                 st.caption("The file is long, so only the first part is used.")
         else:
             st.warning("I couldn't read any text from this file. Scanned "
@@ -196,8 +224,16 @@ with st.sidebar:
                "sent to Google's AI service. Don't upload personal documents.")
 
 # ---- Main page ----
-st.title("🎓 Student Helpdesk Chatbot")
-st.caption("Ask about " + topics_text + ".")
+chips = "".join(
+    f'<span class="chip">{html.escape(t.title())}</span>' for t in topics
+)
+st.markdown(f"""
+<div class="hero">
+<h1>🎓 Student Helpdesk</h1>
+<p>Campus questions answered instantly, plus an AI study buddy.</p>
+</div>
+<div class="chips">{chips}</div>
+""", unsafe_allow_html=True)
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -211,6 +247,14 @@ for m in st.session_state.messages:
         st.write(m["content"])
         if m.get("source"):
             st.caption(m["source"])
+
+if len(st.session_state.messages) == 1 and "pending" not in st.session_state:
+    st.write("**Try one of these:**")
+    cols = st.columns(2)
+    for i, (label, starter_text) in enumerate(STARTERS):
+        if cols[i % 2].button(label, key=f"start{i}", use_container_width=True):
+            st.session_state.pending = starter_text
+            st.rerun()
 
 typed = st.chat_input("Type your question here")
 question = st.session_state.pop("pending", None) or typed
