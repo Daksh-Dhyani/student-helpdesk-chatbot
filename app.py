@@ -9,10 +9,10 @@ import streamlit as st
 
 from src.chatbot import FAQ_FILE, build_model, get_answer, load_faq
 
-MODEL_NAMES = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash-lite"]
+MODEL_NAMES = ["gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-3.7-flash"]
 GREETINGS = {"hi", "hello", "hey", "hii", "hy", "hlo", "hola"}
 IST = timezone(timedelta(hours=5, minutes=30))
-TYPING_DELAY = 0.03  # seconds per word; make it smaller for faster typing
+TYPING_DELAY = 0.01  # seconds per word; make it smaller for faster typing
 MAX_QUESTION_CHARS = 4000
 MAX_SYLLABUS_CHARS = 30000
 MAX_HISTORY_CHARS = 1500
@@ -106,7 +106,7 @@ def load_client():
         return genai.Client(
             api_key=key,
             http_options=types.HttpOptions(
-                timeout=60000,
+                timeout=20000,
                 retry_options=types.HttpRetryOptions(attempts=1),
             ),
         )
@@ -151,7 +151,11 @@ def build_prompt(faq, history, question, syllabus):
         "You are a friendly, helpful AI assistant for university students. "
         "You can answer any question: studies, coding, general knowledge, "
         "advice, and everyday doubts. Keep replies clear and well organised, "
-        "and reply in the same language style the student uses.\n\n"
+        "and reply in the same language style the student uses. Write only "
+        "in English (or Hinglish in Latin letters if the student does). Never "
+        "use any other script or language unless the student writes in it. "
+        "When a verified fact answers the question, keep its wording and "
+        "numbers exactly.\n\n"
         "STRICT RULE FOR UNIVERSITY QUESTIONS: if the student asks about "
         "their own university (hostel, fees, exams, attendance, library, "
         "transport, scholarships, offices, rules, dates, places, people), "
@@ -166,18 +170,21 @@ def build_prompt(faq, history, question, syllabus):
         f"{syllabus_part}"
         f"CHAT SO FAR:\n{chat}\n\n"
         f"STUDENT: {question}\nASSISTANT:"
-    )
+    ) 
 
 
 def ai_stream(client, faq, history, question, syllabus):
     """Yield the AI reply word by word. Tries each model if one is busy."""
+    from google.genai import types
+
     prompt = build_prompt(faq, history, question, syllabus)
+    settings = types.GenerateContentConfig(temperature=0.3)
     last_error = None
     for model in MODEL_NAMES:
         started = False
         try:
             for chunk in client.models.generate_content_stream(
-                model=model, contents=prompt
+                model=model, contents=prompt, config=settings
             ):
                 if chunk.text:
                     started = True
