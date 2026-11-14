@@ -17,6 +17,8 @@ TYPING_DELAY = 0.01  # seconds per word; make it smaller for faster typing
 MAX_QUESTION_CHARS = 4000
 MAX_SYLLABUS_CHARS = 30000
 MAX_HISTORY_CHARS = 1500
+HISTORY_MESSAGES = 8
+CAREER_FILE = os.path.join(os.path.dirname(FAQ_FILE), "career_guide.md")
 NO_SEARCH_NOTE = ("Live Google Search isn't available right now, so this "
                   "answer may be out of date.")
 
@@ -29,11 +31,26 @@ UNI_WORDS = {
     "warden", "admission", "department",
 }
 
+# Questions with these words are answered from the career guide, so no search.
+CAREER_WORDS = {
+    "career", "roadmap", "internship", "internships", "resume", "cv",
+    "linkedin", "github", "portfolio", "skills", "skill", "sql", "python",
+    "excel", "tableau", "powerbi", "pandas", "numpy", "analyst", "analytics",
+    "project", "projects", "readme", "interview",
+}
+
 STUDY_PROMPTS = {
     "📖 Explain unit 1 simply": "Explain unit 1 of my syllabus simply, with examples.",
     "🗓️ 7-day study plan": "Make a 7-day study plan for my syllabus.",
     "❓ 10 practice questions": "Give me 10 likely exam-style practice questions with answers from my syllabus.",
     "📝 Short revision notes": "Make short revision notes for my syllabus.",
+}
+
+CAREER_PROMPTS = {
+    "🧭 Skills to learn, in order": "Which skills should I learn as a BCA Data Science student, and in what order?",
+    "🗓️ 90-day internship plan": "How do I become internship-ready in 90 days?",
+    "💻 GitHub portfolio": "How do I build a GitHub portfolio for data science?",
+    "🔗 LinkedIn profile": "How do I build a good LinkedIn profile for data roles?",
 }
 
 STARTERS = [
@@ -126,6 +143,23 @@ def load_bot(file_stamp):
 
 
 @st.cache_resource
+def load_career(file_stamp):
+    """Read the career guide text (empty text if the file is missing)."""
+    try:
+        with open(CAREER_FILE, encoding="utf-8") as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
+
+def career_stamp():
+    try:
+        return os.path.getmtime(CAREER_FILE)
+    except OSError:
+        return 0
+
+
+@st.cache_resource
 def load_client():
     try:
         key = st.secrets["GEMINI_API_KEY"]
@@ -161,10 +195,11 @@ def word_stream(text):
         time.sleep(TYPING_DELAY)
 
 
-def is_university_question(question, found_answer):
-    """True if the question is about the university (so: no web search)."""
+def skips_search(question, found_answer):
+    """True for university and career-guide questions (no web search)."""
     words = set(re.findall(r"[a-z0-9]+", question.lower()))
-    return bool(found_answer) or bool(words & UNI_WORDS)
+    return (bool(found_answer) or bool(words & UNI_WORDS)
+            or bool(words & CAREER_WORDS))
 
 
 def is_quota_error(error):
@@ -206,12 +241,13 @@ def show_extras(msg):
         st.caption(msg["note"])
 
 
-def build_prompt(faq, history, question, syllabus):
+def build_prompt(faq, history, question, syllabus, career):
     knowledge = "\n".join(
         f"- Q: {row['question']}\n  A: {row['answer']}" for row in faq
     )
     chat = "\n".join(
-        f"{m['role']}: {m['content'][:MAX_HISTORY_CHARS]}" for m in history[-6:]
+        f"{m['role']}: {m['content'][:MAX_HISTORY_CHARS]}"
+        for m in history[-HISTORY_MESSAGES:]
     )
     syllabus_part = ""
     if syllabus:
@@ -220,22 +256,50 @@ def build_prompt(faq, history, question, syllabus):
             "explaining units, study plans, revision notes and practice "
             "questions):\n" + syllabus + "\n\n"
         )
+    career_part = ""
+    if career:
+        career_part = (
+            "CAREER GUIDE (general industry advice, NOT official university "
+            "information):\n" + career + "\n\n"
+        )
     return (
         "You are a friendly, helpful AI assistant for university students. "
         "You can answer any question: studies, coding, general knowledge, "
-        "advice, and everyday doubts. Keep replies clear and well organised, "
-        "and reply in the same language style the student uses. Write only "
-        "in English (or Hinglish in Latin letters if the student does). Never "
-        "use any other script or language unless the student writes in it. "
-        "When a verified fact answers the question, keep its wording and "
-        "numbers exactly.\n\n"
+        "career advice and everyday doubts. Reply in the same language style "
+        "the student uses. Write only in English (or Hinglish in Latin "
+        "letters if the student does). Never use any other script or "
+        "language unless the student writes in it. When a verified fact "
+        "answers the question, keep its wording and numbers exactly.\n\n"
         "STRICT RULE FOR UNIVERSITY QUESTIONS: if the student asks about "
         "their own university (hostel, fees, exams, attendance, library, "
         "transport, scholarships, offices, rules, dates, places, people), "
         "answer ONLY from the verified facts below. Never invent or guess "
-        "any university detail. If the facts do not contain it, say you are "
-        "not sure and suggest asking the college office or checking CUIMS. "
-        "Never use web search for university questions.\n"
+        "any university detail, especially scholarship percentages, "
+        "eligibility or fee rules. If the facts do not contain it, say you "
+        "are not sure and suggest asking the college office or checking "
+        "CUIMS. Never use web search for university questions.\n\n"
+        "CAREER GUIDANCE RULES: for questions about skills, roadmaps, "
+        "internships, projects, GitHub, LinkedIn or resumes, use the CAREER "
+        "GUIDE below and follow its learning order. Say briefly that it is "
+        "general industry advice, not official university information. When "
+        "the student asks for a roadmap, plan or what to learn and has NOT "
+        "yet told you (in this chat) their course and year, preferred role, "
+        "current skills and goal, first ask for these in ONE short numbered "
+        "list of four questions and wait for the answer; if they say to "
+        "just give the plan, give the standard plan. When they have told "
+        "you, do not ask again: adapt the plan (skip stages they already "
+        "know, change the length, choose projects for their role) and "
+        "remember their answers for follow-up questions. Never invent "
+        "salaries, placement statistics, hiring numbers or promises of a "
+        "job; say the plan makes them ready to apply, not that it "
+        "guarantees an offer.\n\n"
+        "ANSWER STYLE: no filler introduction and no repeated greetings. "
+        "Give short answers (2 to 4 sentences) to simple questions and "
+        "structured answers (short headings, bullet lists, tables, "
+        "practical examples) to complex ones. Put actions first. When both "
+        "kinds appear, label official university information and general "
+        "advice separately. If information is unavailable, say so instead "
+        "of guessing.\n\n"
         "For study help from the syllabus: practice questions are only "
         "guesses, not the real exam paper, so say that briefly. Never claim "
         "to know what will actually come in the student's exam.\n"
@@ -243,13 +307,14 @@ def build_prompt(faq, history, question, syllabus):
         f"'{time_greeting()}'. Otherwise do not start with a greeting; answer "
         "the question directly.\n\n"
         f"VERIFIED UNIVERSITY FACTS:\n{knowledge}\n\n"
+        f"{career_part}"
         f"{syllabus_part}"
         f"CHAT SO FAR:\n{chat}\n\n"
         f"STUDENT: {question}\nASSISTANT:"
     )
 
 
-def ai_stream(client, faq, history, question, syllabus,
+def ai_stream(client, faq, history, question, syllabus, career,
               use_search=False, extras=None):
     """Yield the AI reply word by word.
 
@@ -260,7 +325,7 @@ def ai_stream(client, faq, history, question, syllabus,
     """
     from google.genai import types
 
-    prompt = build_prompt(faq, history, question, syllabus)
+    prompt = build_prompt(faq, history, question, syllabus, career)
     last_error = None
     for with_search in ([True, False] if use_search else [False]):
         if with_search:
@@ -307,6 +372,7 @@ def ai_stream(client, faq, history, question, syllabus,
 
 
 faq, vectorizer, question_vectors, topics = load_bot(os.path.getmtime(FAQ_FILE))
+career = load_career(career_stamp())
 client = load_client()
 topics_text = ", ".join(topics)
 welcome = time_greeting() + "! 👋 How can I help you today?"
@@ -326,6 +392,13 @@ with st.sidebar:
               "How can I pay my fees?", "What are the library timings?"]:
         if st.button(q, use_container_width=True):
             st.session_state.pending = q
+
+    if client and career:
+        st.divider()
+        st.write("🚀 **Career help**")
+        for label, career_prompt in CAREER_PROMPTS.items():
+            if st.button(label, use_container_width=True):
+                st.session_state.pending = career_prompt
 
     st.divider()
     st.write("📚 **Study helper**")
@@ -350,19 +423,19 @@ with st.sidebar:
             if st.button(label, use_container_width=True):
                 st.session_state.pending = study_prompt
     if not client:
-        st.caption("Study help needs the AI, which is off right now.")
+        st.caption("Study and career help need the AI, which is off right now.")
 
     st.divider()
     if st.button("🗑️ Clear chat", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
     st.caption("Not an official university service. University answers come "
-               "from verified facts. General and study answers come from an "
-               "AI and can be wrong, so double-check anything important. "
-               "Questions about current events may use Google Search when "
-               "it is available. An uploaded syllabus is used only for your "
-               "current chat and is sent to Google's AI service. Don't "
-               "upload personal documents.")
+               "from verified facts. General, study and career answers come "
+               "from an AI and general industry advice, and can be wrong, so "
+               "double-check anything important. Questions about current "
+               "events may use Google Search when it is available. An "
+               "uploaded syllabus is used only for your current chat and is "
+               "sent to Google's AI service. Don't upload personal documents.")
 
 # ---- Main page ----
 chips = "".join(
@@ -379,7 +452,7 @@ st.markdown(f"""
 
 st.text("A free AI chatbot that answers common university questions about "
         "exams, attendance, fees, hostel, library, transport and "
-        "scholarships, and helps you study from your own syllabus.")
+        "scholarships, and helps you study and plan your data career.")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -425,14 +498,14 @@ if question:
         use_search = (
             client is not None
             and not syllabus
-            and not is_university_question(question, found_match)
+            and not skips_search(question, found_match)
         )
 
         if client is not None:
             try:
                 answer = st.write_stream(
                     ai_stream(client, faq, history, question, syllabus,
-                              use_search=use_search, extras=extras)
+                              career, use_search=use_search, extras=extras)
                 )
                 source = ""
             except Exception as e:
