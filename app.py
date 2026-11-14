@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from io import BytesIO
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 from src.chatbot import FAQ_FILE, build_model, get_answer, load_faq
 
@@ -16,6 +17,17 @@ TYPING_DELAY = 0.01  # seconds per word; make it smaller for faster typing
 MAX_QUESTION_CHARS = 4000
 MAX_SYLLABUS_CHARS = 30000
 MAX_HISTORY_CHARS = 1500
+NO_SEARCH_NOTE = ("Live Google Search isn't available right now, so this "
+                  "answer may be out of date.")
+
+# Questions with these words are about the university, so no web search.
+UNI_WORDS = {
+    "hostel", "mess", "fee", "fees", "exam", "exams", "attendance", "library",
+    "bus", "transport", "scholarship", "scholarships", "cuims", "cucet",
+    "university", "college", "campus", "syllabus", "timetable", "hod",
+    "mentor", "semester", "sem", "cgpa", "bonafide", "reception", "block",
+    "warden", "admission", "department",
+}
 
 STUDY_PROMPTS = {
     "📖 Explain unit 1 simply": "Explain unit 1 of my syllabus simply, with examples.",
@@ -122,7 +134,7 @@ def load_client():
         return genai.Client(
             api_key=key,
             http_options=types.HttpOptions(
-                timeout=20000,
+                timeout=30000,
                 retry_options=types.HttpRetryOptions(attempts=1),
             ),
         )
@@ -147,6 +159,51 @@ def word_stream(text):
     for word in re.findall(r"\s*\S+\s*|\s+", text):
         yield word
         time.sleep(TYPING_DELAY)
+
+
+def is_university_question(question, found_answer):
+    """True if the question is about the university (so: no web search)."""
+    words = set(re.findall(r"[a-z0-9]+", question.lower()))
+    return bool(found_answer) or bool(words & UNI_WORDS)
+
+
+def is_quota_error(error):
+    """True if Google refused the call because of quota (HTTP 429)."""
+    text = str(error)
+    return "429" in text or "RESOURCE_EXHAUSTED" in text
+
+
+def read_sources(response):
+    """Collect the web sources and Search Suggestions from a grounded reply."""
+    info = {"sources": [], "html": ""}
+    try:
+        meta = response.candidates[0].grounding_metadata
+        if meta:
+            seen = set()
+            for chunk in meta.grounding_chunks or []:
+                web = chunk.web
+                if web and web.uri and web.uri not in seen:
+                    seen.add(web.uri)
+                    info["sources"].append((web.title or web.uri, web.uri))
+            entry = meta.search_entry_point
+            if entry and entry.rendered_content:
+                info["html"] = entry.rendered_content
+    except Exception:
+        pass
+    info["sources"] = info["sources"][:5]
+    return info
+
+
+def show_extras(msg):
+    """Show web sources, Search Suggestions and notes under an answer."""
+    if msg.get("sources"):
+        st.caption("Sources: " + " · ".join(
+            f"[{title}]({url})" for title, url in msg["sources"]
+        ))
+    if msg.get("search_html"):
+        components.html(msg["search_html"], height=70)
+    if msg.get("note"):
+        st.caption(msg["note"])
 
 
 def build_prompt(faq, history, question, syllabus):
@@ -177,11 +234,14 @@ def build_prompt(faq, history, question, syllabus):
         "transport, scholarships, offices, rules, dates, places, people), "
         "answer ONLY from the verified facts below. Never invent or guess "
         "any university detail. If the facts do not contain it, say you are "
-        "not sure and suggest asking the college office or checking CUIMS.\n"
+        "not sure and suggest asking the college office or checking CUIMS. "
+        "Never use web search for university questions.\n"
         "For study help from the syllabus: practice questions are only "
         "guesses, not the real exam paper, so say that briefly. Never claim "
         "to know what will actually come in the student's exam.\n"
-        f"If the student greets you, greet back with '{time_greeting()}'.\n\n"
+        f"Only if the student's message is just a greeting, greet back with "
+        f"'{time_greeting()}'. Otherwise do not start with a greeting; answer "
+        "the question directly.\n\n"
         f"VERIFIED UNIVERSITY FACTS:\n{knowledge}\n\n"
         f"{syllabus_part}"
         f"CHAT SO FAR:\n{chat}\n\n"
@@ -189,27 +249,60 @@ def build_prompt(faq, history, question, syllabus):
     )
 
 
-def ai_stream(client, faq, history, question, syllabus):
-    """Yield the AI reply word by word. Tries each model if one is busy."""
+def ai_stream(client, faq, history, question, syllabus,
+              use_search=False, extras=None):
+    """Yield the AI reply word by word.
+
+    With use_search, Gemini may search Google first (non-streaming call).
+    On a quota error the search is skipped and a note is added to extras.
+    If search fails for another reason, it retries without search.
+    Tries each model in turn.
+    """
     from google.genai import types
 
     prompt = build_prompt(faq, history, question, syllabus)
-    settings = types.GenerateContentConfig(temperature=0.3)
     last_error = None
-    for model in MODEL_NAMES:
-        started = False
-        try:
-            for chunk in client.models.generate_content_stream(
-                model=model, contents=prompt, config=settings
-            ):
-                if chunk.text:
-                    started = True
-                    yield from word_stream(chunk.text)
-            return
-        except Exception as e:
-            if started:
-                raise
-            last_error = e
+    for with_search in ([True, False] if use_search else [False]):
+        if with_search:
+            settings = types.GenerateContentConfig(
+                temperature=0.3,
+                tools=[types.Tool(google_search=types.GoogleSearch())],
+            )
+        else:
+            settings = types.GenerateContentConfig(temperature=0.3)
+        for model in MODEL_NAMES:
+            started = False
+            try:
+                if with_search:
+                    response = client.models.generate_content(
+                        model=model, contents=prompt, config=settings
+                    )
+                    text = (response.text or "").strip()
+                    if not text:
+                        raise ValueError("empty answer")
+                    if extras is not None:
+                        extras.update(read_sources(response))
+                    yield from word_stream(text)
+                    return
+                for chunk in client.models.generate_content_stream(
+                    model=model, contents=prompt, config=settings
+                ):
+                    if chunk.text:
+                        started = True
+                        yield from word_stream(chunk.text)
+                return
+            except Exception as e:
+                print("AI call failed:",
+                      "search" if with_search else "plain",
+                      model, type(e).__name__, str(e)[:200])
+                if started:
+                    raise
+                last_error = e
+                if with_search and is_quota_error(e):
+                    # Search quota is shared by all models: stop trying.
+                    if extras is not None:
+                        extras["note"] = NO_SEARCH_NOTE
+                    break
     raise last_error
 
 
@@ -265,9 +358,11 @@ with st.sidebar:
         st.rerun()
     st.caption("Not an official university service. University answers come "
                "from verified facts. General and study answers come from an "
-               "AI and can be wrong, so double-check anything important. An "
-               "uploaded syllabus is used only for your current chat and is "
-               "sent to Google's AI service. Don't upload personal documents.")
+               "AI and can be wrong, so double-check anything important. "
+               "Questions about current events may use Google Search when "
+               "it is available. An uploaded syllabus is used only for your "
+               "current chat and is sent to Google's AI service. Don't "
+               "upload personal documents.")
 
 # ---- Main page ----
 chips = "".join(
@@ -296,6 +391,7 @@ if not st.session_state.messages:
 for m in st.session_state.messages:
     with st.chat_message(m["role"]):
         st.write(m["content"])
+        show_extras(m)
         if m.get("source"):
             st.caption(m["source"])
 
@@ -321,11 +417,22 @@ if question:
 
     with st.chat_message("assistant"):
         answer, source = None, "answered by rules"
+        extras = {}
+
+        found_match, _match_score = get_answer(
+            question, faq, vectorizer, question_vectors
+        )
+        use_search = (
+            client is not None
+            and not syllabus
+            and not is_university_question(question, found_match)
+        )
 
         if client is not None:
             try:
                 answer = st.write_stream(
-                    ai_stream(client, faq, history, question, syllabus)
+                    ai_stream(client, faq, history, question, syllabus,
+                              use_search=use_search, extras=extras)
                 )
                 source = ""
             except Exception as e:
@@ -352,9 +459,16 @@ if question:
                                      "about " + topics_text + ".")
             answer = st.write_stream(word_stream(text))
 
-            if source:
-                st.caption(source)
+        new_msg = {
+            "role": "assistant",
+            "content": answer,
+            "source": source,
+            "sources": extras.get("sources", []),
+            "search_html": extras.get("html", ""),
+            "note": extras.get("note", ""),
+        }
+        show_extras(new_msg)
+        if source:
+            st.caption(source)
 
-    st.session_state.messages.append(
-        {"role": "assistant", "content": answer, "source": source}
-    )
+    st.session_state.messages.append(new_msg)
