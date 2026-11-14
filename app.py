@@ -31,7 +31,10 @@ STARTERS = [
     ("🎓 Scholarships", "Are scholarships available?"),
 ]
 
-st.set_page_config(page_title="Student Helpdesk Chatbot", page_icon="🎓")
+st.set_page_config(
+    page_title="Student Helpdesk Chatbot | AI assistant for university students",
+    page_icon="🎓",
+)
 st.markdown("""
 <style>
 .stApp {background: radial-gradient(circle at 20% 0%, #1b1440 0%, #0b0b14 55%);}
@@ -72,6 +75,7 @@ st.markdown("""
   background: rgba(124,58,237,.18); border: 1px solid rgba(167,139,250,.4);
   animation: rise .6s ease both;
 }
+[data-testid="stText"] {font-family: inherit; font-size: .9rem; color: #a9a9c4;}
 [data-testid="stChatMessage"] {
   background: rgba(255,255,255,.04) !important;
   border: 1px solid rgba(255,255,255,.08);
@@ -277,6 +281,10 @@ st.markdown(f"""
 </div>
 <div class="chips">{chips}</div>
 """, unsafe_allow_html=True)
+
+st.text("A free AI chatbot that answers common university questions about "
+        "exams, attendance, fees, hostel, library, transport and "
+        "scholarships, and helps you study from your own syllabus.")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
