@@ -327,7 +327,7 @@ if question:
                 answer = st.write_stream(
                     ai_stream(client, faq, history, question, syllabus)
                 )
-                source = "answered by AI (university facts are verified, general answers are not)"
+                source = ""
             except Exception as e:
                 answer = None  # fall back to rules if the AI call fails
                 print("AI error:", type(e).__name__, str(e)[:200])
@@ -352,7 +352,8 @@ if question:
                                      "about " + topics_text + ".")
             answer = st.write_stream(word_stream(text))
 
-        st.caption(source)
+            if source:
+                st.caption(source)
 
     st.session_state.messages.append(
         {"role": "assistant", "content": answer, "source": source}
