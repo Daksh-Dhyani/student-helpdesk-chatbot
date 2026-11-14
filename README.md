@@ -1,6 +1,7 @@
 # Student Helpdesk Chatbot
 
-**Live demo:** https://student-appdesk-chatbot-ndgowicfzdsfnecwqjibra.streamlit.app/
+**Live demo:** https://campus-assistance.streamlit.app/
+![Chatbot demo](screenshots/chat_demo.png)
 
 An AI helpdesk assistant for university students, built in Python with
 Streamlit. It answers questions about my own university from a knowledge base
