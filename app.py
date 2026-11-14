@@ -36,6 +36,14 @@ st.markdown("""
 <style>
 .stApp {background: radial-gradient(circle at 20% 0%, #1b1440 0%, #0b0b14 55%);}
 .block-container {padding-top: 2rem; max-width: 900px;}
+.maker {
+  display: inline-flex; align-items: center; gap: 6px; margin: 0 0 12px;
+  padding: 5px 14px; border-radius: 999px; font-size: .85rem; color: #ddd6fe;
+  background: rgba(255,255,255,.06); border: 1px solid rgba(167,139,250,.4);
+  animation: rise .6s ease both;
+}
+.maker a {color: #c4b5fd; text-decoration: none; font-weight: 600;}
+.maker a:hover {color: #ffffff; text-decoration: underline;}
 .hero {
   background: linear-gradient(120deg, #4f46e5, #7c3aed, #db2777, #4f46e5);
   background-size: 300% 300%;
@@ -170,7 +178,7 @@ def build_prompt(faq, history, question, syllabus):
         f"{syllabus_part}"
         f"CHAT SO FAR:\n{chat}\n\n"
         f"STUDENT: {question}\nASSISTANT:"
-    ) 
+    )
 
 
 def ai_stream(client, faq, history, question, syllabus):
@@ -207,6 +215,7 @@ syllabus = ""
 # ---- Sidebar ----
 with st.sidebar:
     st.header("🎓 Helpdesk")
+    st.caption("Built by Daksh Dhyani · BCA Data Science, Chandigarh University")
     st.write("**Topics:** " + topics_text)
     st.write("**Mode:** " + ("AI assistant + verified university facts"
                              if client else "Rules only"))
@@ -257,6 +266,7 @@ chips = "".join(
     f'<span class="chip">{html.escape(t.title())}</span>' for t in topics
 )
 st.markdown(f"""
+<div class="maker">✨ Made by <a href="https://github.com/Daksh-Dhyani" target="_blank" rel="noopener">Daksh Dhyani</a></div>
 <div class="hero">
 <h1>🎓 Student Helpdesk</h1>
 <p>Campus questions answered instantly, plus an AI study buddy.</p>
