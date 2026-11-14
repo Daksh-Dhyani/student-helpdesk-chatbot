@@ -35,11 +35,15 @@ st.set_page_config(page_title="Student Helpdesk Chatbot", page_icon="🎓")
 st.markdown("""
 <style>
 .stApp {background: radial-gradient(circle at 20% 0%, #1b1440 0%, #0b0b14 55%);}
-.block-container {padding-top: 2rem; max-width: 900px;}
+[data-testid="stToolbar"], [data-testid="stDecoration"], #MainMenu, footer {
+  display: none !important;
+}
+[data-testid="stHeader"] {background: transparent;}
+.block-container {padding-top: 3.5rem; max-width: 900px;}
 .maker {
-  display: inline-flex; align-items: center; gap: 6px; margin: 0 0 12px;
-  padding: 5px 14px; border-radius: 999px; font-size: .85rem; color: #ddd6fe;
-  background: rgba(255,255,255,.06); border: 1px solid rgba(167,139,250,.4);
+  display: inline-flex; align-items: center; gap: 6px; margin: 0 0 14px;
+  padding: 7px 16px; border-radius: 999px; font-size: .95rem; color: #ddd6fe;
+  background: rgba(255,255,255,.07); border: 1px solid rgba(167,139,250,.5);
   animation: rise .6s ease both;
 }
 .maker a {color: #c4b5fd; text-decoration: none; font-weight: 600;}
