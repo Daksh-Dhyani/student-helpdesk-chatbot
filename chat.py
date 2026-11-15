@@ -21,7 +21,7 @@ from src.db import (
     save_conversation,
 )
 
-MODEL_NAMES = ["gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-3.7-flash"]
+MODEL_NAMES = ["gemini-3.5-flash-lite", "gemini-3.8-flash"]
 GREETINGS = {"hi", "hello", "hey", "hii", "hy", "hlo", "hola"}
 IST = timezone(timedelta(hours=5, minutes=30))
 TYPING_DELAY = 0.01  # seconds per word; make it smaller for faster typing
@@ -36,7 +36,7 @@ NO_SEARCH_NOTE = ("Live Google Search isn't available right now, so this "
 # Usage limits (AI answers). Change these numbers to suit your Gemini quota.
 SESSION_LIMIT = 10      # per visit, for people who are not signed in
 USER_DAILY_LIMIT = 30   # per signed-in user, per day (IST)
-SITE_DAILY_LIMIT = 90   # for the whole site, per day (IST)
+SITE_DAILY_LIMIT = 400   # for the whole site, per day (IST)
 
 CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 
