@@ -90,7 +90,9 @@ STARTERS = [
 st.markdown("""
 <style>
 .stApp {background: radial-gradient(circle at 20% 0%, #1b1440 0%, #0b0b14 55%);}
-[data-testid="stToolbar"], [data-testid="stDecoration"], #MainMenu, footer {
+[data-testid="stToolbarActions"], [data-testid="stMainMenu"],
+[data-testid="stAppDeployButton"], [data-testid="stDecoration"],
+#MainMenu, footer {
   display: none !important;
 }
 [data-testid="stHeader"] {background: transparent;}
