@@ -1,76 +1,72 @@
 # Student Helpdesk Chatbot
 
-**Live demo:** https://campus-assistance.streamlit.app/
-![Chatbot demo](screenshots/chat_demo.png)
+A free AI assistant for university students. It answers general questions on almost any subject, gives **verified answers** about Chandigarh University (exams, attendance, fees, hostel, library, transport, scholarships), helps students study from an uploaded syllabus, and gives general career guidance for data roles.
 
-An AI helpdesk assistant for university students, built in Python with
-Streamlit. It answers questions about my own university from a knowledge base
-I wrote and verified myself, and it can also answer general questions like a
-normal AI assistant.
+**Live app:** https://campus-assistance.streamlit.app/
 
-> Not an official university service. General answers come from an AI and can
-> be wrong. University answers come only from the verified facts in
-> `data/faq.csv`.
+![Student Helpdesk screenshot](screenshots/chat_demo.png)
 
 ## Features
-- Web chat page with a typing effect and example questions in the sidebar
-- Time-based greeting (Good morning / afternoon / evening, Indian time)
-- Short chat memory, so follow-up questions make sense
-- Verified answers on academics, attendance, exams, fees, hostel, library,
-  offices, scholarships and transport
-- General questions (coding, study help, advice) answered by a Google Gemini
-  model
-- If the AI is busy or unavailable, it falls back to simple matching on the
-  verified answers and says so
-- Study helper: upload a syllabus (PDF or text) and get explanations, a 7-day
-  study plan, practice questions or revision notes based on it. The file is
-  used only for the current chat.
 
-## How it works
-1. **Verified facts:** `data/faq.csv` holds questions, answers and keywords.
-2. **AI layer:** the Gemini model receives the verified facts with strict
-   instructions: for university questions, answer only from those facts and
-   say "not sure" if the answer is not there. Other questions are answered
-   freely.
-3. **Fallback layer:** if the AI call fails, TF-IDF and cosine similarity
-   (scikit-learn) find the closest stored question. Weak matches are
-   rejected, so the bot does not give a wrong answer.
+- **General AI assistant** (Google Gemini): explanations, coding help, writing, study help.
+- **Verified university answers** from `data/faq.csv`, matched with TF-IDF and cosine similarity (scikit-learn). Answers do not come from the AI's memory.
+- **Career guidance** from `data/career_guide.md`, labelled as general industry advice.
+- **Study helper:** upload a syllabus (PDF or text) for study plans, notes and practice questions.
+- **Optional Google sign-in** (Streamlit login). Signed-in users get chats saved across devices (Supabase).
+- **Multiple chats, Copy and Regenerate.**
+- **Usage limits:** per visit, per user per day, and site-wide per day, to stay within free quotas.
+- **Prompt-injection hardening:** user text, chat history and uploads are treated as untrusted data. This reduces the risk, but does not remove it.
+- **Pages:** About, Privacy, Terms and a Feedback form (stored in Supabase).
+
+## Tech stack
+
+Python, Streamlit, scikit-learn, Google Gemini API (`google-genai`), Supabase (REST), Google OAuth (Streamlit `st.login`).
 
 ## Project structure
+
 ```
-student-helpdesk-chatbot/
-├── app.py              Streamlit web app (AI layer and chat page)
-├── src/chatbot.py      rules-based matching (TF-IDF) and terminal version
-├── data/faq.csv        verified questions, answers and keywords
-├── requirements.txt
-└── README.md
+app.py              page navigation
+chat.py             chat page
+site_pages/         About, Privacy, Terms, Feedback
+src/chatbot.py      verified-answer matching
+src/db.py           Supabase access (chats, usage, feedback)
+data/faq.csv        verified university facts
+data/career_guide.md  general career guidance
+requirements.txt
 ```
 
-## Run it locally
-1. Create and activate a virtual environment, then
-   `pip install -r requirements.txt`
-2. Create `.streamlit/secrets.toml` with your own Gemini API key:
-   ```
-   GEMINI_API_KEY = "your-key-here"
-   ```
-   Never commit this file. It is listed in `.gitignore`.
-3. Run `streamlit run app.py`
+## Run locally
 
-Without a key the app still works in rules-only mode.
+```
+pip install -r requirements.txt
+streamlit run app.py
+```
 
-## Add or change answers
-Edit `data/faq.csv`. Each row is `topic,question,answer,keywords`. Put
-answers that contain commas inside double quotes. Add the words students
-might actually type to the keywords column.
+Create `.streamlit/secrets.toml` (never commit it):
+
+```toml
+GEMINI_API_KEY = "your-gemini-key"
+
+[auth]
+redirect_uri = "http://localhost:8501/oauth2callback"
+cookie_secret = "a-long-random-string"
+client_id = "your-google-client-id"
+client_secret = "your-google-client-secret"
+server_metadata_url = "https://accounts.google.com/.well-known/openid-configuration"
+
+[supabase]
+url = "your-supabase-url"
+key = "your-supabase-secret-key"
+```
+
+Without the `[auth]` and `[supabase]` sections the app still runs, without sign-in and saved chats. Saving chats needs three Supabase tables (`conversations`, `usage_log`, `feedback`) and a `bump_usage` function.
 
 ## Limitations
-- Answers reflect what I know about my university and may be out of date.
-  Confirm important details with the college office or CUIMS.
-- General AI answers are not verified and can be wrong.
-- The AI runs on a free Gemini plan, so it can be slow or busy at times.
-- The rules fallback matches words, not meaning.
-- Scanned or photographed PDFs can't be read, only text-based ones.
-- Practice questions are guesses, not the real exam paper.
+
+- Not an official university service. Answers outside the verified facts come from an AI and can be wrong.
+- Live Google Search is not available on the free Gemini quota, so the assistant cannot check current news.
+- The free hosting and free Gemini quota limit how many people can use it at once.
 
 ## Author
-Daksh Dhyani, BCA Data Science (Hons.), Chandigarh University
+
+Daksh Dhyani, BCA (Data Science), Chandigarh University. [GitHub](https://github.com/Daksh-Dhyani)
