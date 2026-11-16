@@ -3,7 +3,7 @@ import streamlit as st
 st.title("ℹ️ About")
 
 st.markdown("""
-**Student Helpdesk Chatbot** is a free AI assistant for university students.
+**Nexora AI** is a free AI assistant for university students.
 It was built by [Daksh Dhyani](https://github.com/Daksh-Dhyani), a BCA Data
 Science student at Chandigarh University, as a personal project.
 
