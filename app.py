@@ -1,8 +1,8 @@
 import streamlit as st
 
 st.set_page_config(
-    page_title="Student Helpdesk Chatbot | AI assistant for university students",
-    page_icon="🎓",
+    page_title="Nexora AI | AI assistant for university students",
+    page_icon="✨",
     initial_sidebar_state="expanded",
 )
 
