@@ -27,6 +27,16 @@ This is a student project. Here is what happens to your data.
 - The file itself is not saved in our database. If an answer quotes part of
   it and you are signed in, that answer is saved as part of your chat.
 
+### Preferences ("About you")
+- Preferences you set in the sidebar (name, role, level, style, goal) are kept
+  only for your visit and are sent to Google's Gemini API with your questions.
+  They are not saved in our database.
+
+### Web search
+- For questions about current events, your question may be sent to a web
+  search service (Tavily) to find sources. The search results and your
+  question are then sent to Google's Gemini API to write the answer.
+
 ### Feedback
 - If you send feedback, we store your message, the category, the optional
   contact detail you type, and your email if you are signed in.
