@@ -2,7 +2,7 @@
 
 A free AI assistant for university students. It answers general questions on almost any subject, gives **verified answers** about Chandigarh University (exams, attendance, fees, hostel, library, transport, scholarships), helps students study from an uploaded syllabus, and gives general career guidance for data roles.
 
-**Live app:** https://campus-assistance.streamlit.app/
+**Live app:** https://nexora-ai-global.streamlit.app
 
 ![Student Helpdesk screenshot](screenshots/chat_demo.png)
 
